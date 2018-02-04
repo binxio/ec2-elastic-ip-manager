@@ -1,6 +1,12 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 
+Parameters:
+  LambdaS3BucketPrefix:
+    Description: 'the bucket prefix of the lambda distribution bucket'
+    Type: String
+    Default: binxio-public
+
 Resources:
   Policy:
     Type: AWS::IAM::ManagedPolicy
@@ -35,10 +41,7 @@ Resources:
     Properties:
       Description: Elastic IP manager for Autoscaling Group instances
       Code:
-        S3Bucket: !If
-          - UsePublicBucket
-          - !Sub 'binxio-public-${AWS::Region}'
-          - !Ref 'LambdaS3Bucket'
+        S3Bucket: - !Sub '${LambdaS3BucketPrefix-${AWS::Region}'
         S3Key: lambdas/asg-elastic-ip-manager-latest.zip
       Handler: asg_elastic_ip_manager.handler
       Role: !GetAtt LambdaRole.Arn
