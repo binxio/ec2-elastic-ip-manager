@@ -41,8 +41,8 @@ Resources:
     Properties:
       Description: Elastic IP manager for Autoscaling Group instances
       Code:
-        S3Bucket: - !Sub '${LambdaS3BucketPrefix-${AWS::Region}'
         S3Key: lambdas/asg-elastic-ip-manager-latest.zip
+        S3Bucket: !Sub '${LambdaS3BucketPrefix}-${AWS::Region}'
       Handler: asg_elastic_ip_manager.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python2.7
