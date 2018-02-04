@@ -65,9 +65,10 @@ def add_to_all_asg_instances(event):
                            asg['Instances']))
     all_addresses = addresses()
     for instance in instances:
-        if not filter(lambda a: a['InstanceId'] == instance, all_addresses):
+        if filter(lambda a: a['InstanceId'] == instance, all_addresses):
+            log.debug('instance %s already has an elastic ip addresses', instance)
+        else:
             add_address(event, instance)
-
 
 def add_address(event, instance):
     try:
