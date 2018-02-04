@@ -1,0 +1,34 @@
+import asg_elastic_ip_manager.manager as manager
+
+event = {
+          'version': '0',
+          'id': '12345678-1234-1234-1234-123456789012',
+          'detail-type': 'EC2 Instance Launch Successful',
+          'source': 'aws.autoscaling',
+          'account': '123456789012',
+          'time': 'yyyy-mm-ddThh:mm:ssZ',
+          'region': 'us-west-2',
+          'resources': [
+            'auto-scaling-group-arn',
+            'instance-arn'
+          ],
+          'detail': {
+            'StatusCode': 'InProgress',
+            'Description': 'Launching a new EC2 instance: i-12345678',
+            'c': 'my-auto-scaling-group',
+            'ActivityId': '87654321-4321-4321-4321-210987654321',
+            'Details': {
+              'Availability Zone': 'us-west-2b',
+              'Subnet ID': 'subnet-12345678'
+            },
+            'RequestId': '12345678-1234-1234-1234-123456789012',
+            'StatusMessage': '',
+            'EndTime': 'yyyy-mm-ddThh:mm:ssZ',
+            'EC2InstanceId': 'i-1234567890abcdef0',
+            'StartTime': 'yyyy-mm-ddThh:mm:ssZ',
+            'Cause': 'description-text'
+          }
+        }
+
+def test_simple():
+    assert manager.instance_id(event) == 'i-1234567890abcdef0'
