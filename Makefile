@@ -95,7 +95,7 @@ deploy-manager:
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
 		--stack-name $(NAME) \
-		--template-body file://cloudformation/asg-elastic-ip-manager.yaml 
+		--template-body file://cloudformation/asg-elastic-ip-manager.yaml ; \
 	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME) ;
 
 delete-manager:
@@ -110,7 +110,7 @@ demo:
 	fi ;\
 	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
 		--template-body file://cloudformation/demo-stack.yaml  
-		$$CFN_TIMEOUT 
+		$$CFN_TIMEOUT  ; \
 	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME)-demo ;
 
 delete-demo:

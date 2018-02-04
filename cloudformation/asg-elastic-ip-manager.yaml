@@ -60,12 +60,20 @@ Resources:
   Rule:
     Type: AWS::Events::Rule
     Properties:
+      State: ENABLED
       EventPattern: !Sub |
         {
-          "source": [ "aws.autoscaling" ],
-          "detail": {
-            "LifecycleTransition": ["autoscaling:EC2_INSTANCE_TERMINATING", "autoscaling:EC2_INSTANCE_LAUNCHING"]
-          }
+          "source": [
+            "aws.autoscaling"
+          ],
+          "detail-type": [
+            "EC2 Instance Launch Successful",
+            "EC2 Instance Terminate Successful",
+            "EC2 Instance Launch Unsuccessful",
+            "EC2 Instance Terminate Unsuccessful",
+            "EC2 Instance-launch Lifecycle Action",
+            "EC2 Instance-terminate Lifecycle Action"
+          ]
         }
       Targets:
       - Arn: !GetAtt Function.Arn
