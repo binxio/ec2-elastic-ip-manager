@@ -1,0 +1,63 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Resources:
+  Policy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Resource: "*"
+          Action:
+          - ec2:DescribeAddresses
+          - ec2:AssociateAddress
+          - ec2:DisassociateAddress
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      - !Ref Policy
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action: sts:AssumeRole
+
+  Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: asg_elastic_ip_manager/
+      Handler: manager.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python2.7
+      Environment:
+        Variables:
+          AUTOSCALING_GROUP_NAME: 'bastion'
+
+  Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt Function.Arn
+      Principal: events.amazonaws.com
+
+  Rule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern: !Sub |
+        {
+          "source": [ "aws.autoscaling" ],
+          "detail": {
+            "LifecycleTransition": ["autoscaling:EC2_INSTANCE_TERMINATING", "autoscaling:EC2_INSTANCE_LAUNCHING"]
+          }
+        }
+      Targets:
+      - Arn: !GetAtt Function.Arn
+        Id: asg-elastic-ip-manager
