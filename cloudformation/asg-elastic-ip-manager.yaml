@@ -39,8 +39,8 @@ Resources:
           - UsePublicBucket
           - !Sub 'binxio-public-${AWS::Region}'
           - !Ref 'LambdaS3Bucket'
-        S3Key: lambdas/asg-elastic-ip-manager-0.5.0.zip
-      Handler: manager.handler
+        S3Key: lambdas/asg-elastic-ip-manager-latest.zip
+      Handler: asg_elastic_ip_manager.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python2.7
       Environment:
