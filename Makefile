@@ -64,7 +64,7 @@ local-build: src/*/*.py venv requirements.txt
 	chmod ugo+r target/$(NAME)-$(VERSION).zip
 
 venv: requirements.txt
-	virtualenv -p python3 venv  && \
+	virtualenv -p python2 venv  && \
 	. ./venv/bin/activate && \
 	pip install --quiet --upgrade pip && \
 	pip install --quiet virtualenv && \
