@@ -14,8 +14,8 @@ help:
 	@echo 'make test            - execute the tests, requires a working AWS connection.'
 	@echo 'make deploy	    - lambda to bucket $(S3_BUCKET)'
 	@echo 'make deploy-all-regions - lambda to all regions with bucket prefix $(S3_BUCKET_PREFIX)'
-	@echo 'make deploy-provider - deploys the provider.'
-	@echo 'make delete-provider - deletes the provider.'
+	@echo 'make deploy-lambda - deploys the manager.'
+	@echo 'make delete-lambda - deletes the manager.'
 	@echo 'make demo            - deploys the provider and the demo cloudformation stack.'
 	@echo 'make delete-demo     - deletes the demo cloudformation stack.'
 
@@ -45,9 +45,8 @@ deploy-all-regions: deploy
 do-push: deploy
 
 do-build: target/$(NAME)-$(VERSION).zip
-	bin/add-allow-tag-actions-statement
 
-target/$(NAME)-$(VERSION).zip: src/*.py requirements.txt Dockerfile.lambda
+target/$(NAME)-$(VERSION).zip: src/*/*.py requirements.txt Dockerfile.lambda
 	mkdir -p target
 	docker build --build-arg ZIPFILE=$(NAME)-$(VERSION).zip -t $(NAME)-lambda:$(VERSION) -f Dockerfile.lambda . && \
 		ID=$$(docker create $(NAME)-lambda:$(VERSION) /bin/true) && \
@@ -63,7 +62,7 @@ venv: requirements.txt
 
 clean:
 	rm -rf venv target
-	rm -rf src/*.pyc tests/*.pyc
+	find . -name \*.pyc | xargs rm 
 
 test: venv
 	for i in $$PWD/cloudformation/*; do \
@@ -77,7 +76,7 @@ test: venv
 fmt:
 	black src/*.py tests/*.py
 
-deploy-provider: deploy
+deploy-lambda: deploy
 	@set -x ;if aws cloudformation get-template-summary --stack-name $(NAME) >/dev/null 2>&1 ; then \
 		export CFN_COMMAND=update; \
 	else \
@@ -86,11 +85,11 @@ deploy-provider: deploy
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
 		--stack-name $(NAME) \
-		--template-body file://cloudformation/cfn-resource-provider.yaml \
+		--template-body file://cloudformation/asg-elastic-ip-manager.yaml \
 		--parameters ParameterKey=CFNCustomProviderZipFileName,ParameterValue=lambdas/$(NAME)-$(VERSION).zip; \
 	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME) ;
 
-delete-provider:
+delete-lambda:
 	aws cloudformation delete-stack --stack-name $(NAME)
 	aws cloudformation wait stack-delete-complete  --stack-name $(NAME)
 

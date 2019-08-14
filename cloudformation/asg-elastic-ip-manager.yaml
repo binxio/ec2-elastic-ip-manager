@@ -9,6 +9,11 @@ Parameters:
     Type: String
     Default: lambdas/asg-elastic-ip-manager-latest.zip
 
+Conditions:
+  UsePublicBucket: !Equals
+    - !Ref 'LambdaS3Bucket'
+    - ''
+
 Resources:
   Policy:
     Type: AWS::IAM::ManagedPolicy
@@ -52,22 +57,32 @@ Resources:
       Handler: asg_elastic_ip_manager.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
-      Environment:
-        Variables:
-          AUTO_SCALING_GROUP_NAMES: 'bastion'
-
-  AsgElasticIPManager:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: AsgElasticIPManager
-      DisplayName: Autoscaling elastic IP manager
-      Subscription:
-        - Endpoint: !GetAtt 'Function.Arn'
-          Protocol: lambda
 
   Permission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt Function.Arn
-      Principal: sns.amazonaws.com
+      Principal: events.amazonaws.com
+
+  Rule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern: !Sub |
+        {
+          "source": [
+            "aws.autoscaling"
+          ],
+          "detail-type": [
+            "EC2 Instance Launch Successful",
+            "EC2 Instance Terminate Successful",
+            "EC2 Instance Launch Unsuccessful",
+            "EC2 Instance Terminate Unsuccessful",
+            "EC2 Instance-launch Lifecycle Action",
+            "EC2 Instance-terminate Lifecycle Action"
+          ]
+        }
+      Targets:
+        - Id: asg-elastic-ip-manager
+          Arn: !GetAtt Function.Arn
