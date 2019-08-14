@@ -48,6 +48,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Description: Elastic IP manager for Autoscaling Group instances
+      FunctionName: asg-elastic-ip-manager
       Code:
         S3Bucket: !If
           - UsePublicBucket

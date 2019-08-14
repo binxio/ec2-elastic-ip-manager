@@ -16,8 +16,8 @@ from typing import List, Set
 
 from botocore.exceptions import ClientError
 
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-log = logging.getLogger("asg_elastic_ip_manager")
+log = logging.getLogger()
+log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 ec2 = boto3.client("ec2")
 autoscaling = boto3.client("autoscaling")
@@ -163,6 +163,10 @@ class Manager(object):
                 )
 
     def remove_addresses(self):
+        if not self.instance_addresses:
+            log.info(f"instance {self.instance_id} of auto scaling group {self.auto_scaling_group_name} terminated, but did not have an EIP associated")
+            return
+        
         for allocation_id, association_id in map(
             lambda a: (a["AllocationId"], a["AssociationId"]), self.instance_addresses
         ):
