@@ -124,11 +124,6 @@ class Manager(object):
         """
         ensure an ip address with all healthy associated with all healthy inservice asg instances.
         """
-        if not self.pool_name:
-            log.info(
-                f'The autoscaling group "{self.auto_scaling_group_name}" is not associated with an EIP Pool'
-            )
-            return
 
         instances = list(self.unattached_instances)
         if not instances:
@@ -180,6 +175,12 @@ class Manager(object):
                 log.error("failed to remove elastic ip address, %s", e)
 
     def handle(self):
+        if not self.pool_name:
+            log.info(
+                f'ignoring autoscaling group "{self.auto_scaling_group_name}" is not associated with an EIP Pool'
+            )
+            return
+
         if self.is_add_address_event:
             self.add_addresses()
         elif self.is_remove_address_event:
