@@ -1,7 +1,7 @@
 """
 AWS Auto Scaling Elastic IP manager
 
-Manages the ip addresses associated to an autoscaling group instance.
+Manages the ip addresses associated to an autoscaling group instance. 
 
 When a lifecycle terminating event occurs, the manager will remove all the elastic ip addresses that are associated
 with the instance.
@@ -12,95 +12,128 @@ no elastic ips are available, it will cancel the launch event.
 import os
 import boto3
 import logging
+from typing import List, Set
 
 from botocore.exceptions import ClientError
 
 logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'))
 log = logging.getLogger('asg_elastic_ip_manager')
 
-ec2 = boto3.client('ec2')
+ec2  = boto3.client('ec2')
 autoscaling = boto3.client('autoscaling')
 
+class Manager(object):
+    def __init__(self, event: dict):
+        self.event : dict = event
 
-def addresses():
-    response = ec2.describe_addresses(Filters=[{'Name': 'domain', 'Values': ['vpc']}])
-    return response['Addresses']
+        self.pool_name: str = None
+        self.auto_scaling_group : dict = None
+
+        self.get_auto_scaling_group()
+
+        self.addresses : List[dict] = []
+        self.get_addresses()
+
+    def get_addresses(self) -> List[dict]:
+        response = ec2.describe_addresses(Filters=[{'Name': 'domain', 'Values': ['vpc']}, {'Name': 'tag:EIPPoolName', 'Values': [self.pool_name]}])
+        self.addresses = response['Addresses']
+
+    def get_auto_scaling_group(self):
+        response = autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[self.auto_scaling_group_name])
+        self.auto_scaling_group = response['AutoScalingGroups'][0]
+        self.pool_name = next(map(lambda t: t['Value'], filter(lambda t : t['Key'] == 'EIPPoolName', self.auto_scaling_group['Tags'])), None)
+
+    @property
+    def instance_id(self):
+        return self.event['detail']['EC2InstanceId']
+
+    @property
+    def instance_addresses(self) -> List[dict]:
+        return list(filter(lambda a: 'InstanceId' in a and a['InstanceId'] == self.instance_id, self.addresses))
+
+    @property
+    def available_addresses(self) -> List[dict]:
+        return list(filter(lambda a: 'InstanceId' not in a, self.addresses))
+
+    @property
+    def is_remove_address_event(self) -> bool:
+        return self.event.get('detail-type') in ['EC2 Instance Terminate Successful', 'EC2 Instance Launch Unsuccessful']
+
+    @property
+    def is_add_address_event(self):
+        return self.event.get('detail-type') in ['EC2 Instance Terminate Unsuccessful', 'EC2 Instance Launch Successful']
+
+    @property
+    def auto_scaling_group_name(self):
+        return self.event['detail']['AutoScalingGroupName']
+
+    def is_pool_address(allocation_id : str) -> bool:
+        response = ec2.describe_addresses(AllocationIds=[allocation_id], Filters = [{'Name': 'tag-value', 'Values': ['EIPPoolName']}])
+        return response['Addresses']
+
+    @property
+    def instances(self) -> Set[str]:
+        return set(map(lambda i: i['InstanceId'],
+                            filter(lambda i: i['LifecycleState'] == 'InService' and i['HealthStatus'] == 'Healthy',
+                                   self.auto_scaling_group['Instances'])))
+
+    @property
+    def attached_instances(self) -> Set[str]:
+        return set(map(lambda a : a['InstanceId'], filter(lambda a: 'InstanceId' in a, self.addresses)))
+
+    @property
+    def unattached_instances(self) -> Set[str]:
+        return self.instances - self.attached_instances
+
+    def add_addresses(self):
+        """
+        ensure an ip address with all healthy associated with all healthy inservice asg instances.
+        """
+        if not self.pool_name:
+            log.info(f'The autoscaling group "{self.auto_scaling_group_name}" is not associated with an EIP Pool')
+            return
+
+        instances = list(self.unattached_instances)
+        if not instances:
+            log.info(f'All healthy in-service instances in the autoscaling group "{self.auto_scaling_group_name}" are associated with an EIP')
+            return
+
+        allocation_ids = list(map(lambda a: a['AllocationId'], self.available_addresses))
+        if len(instances) > len(allocation_ids):
+            log.warning(f'The Elastic IP pool {self.pool_name} is short of {len(instances) - len(allocation_ids)} addresses to assign to the autoscaling group "{self.auto_scaling_group_name}"')
+
+        if not allocation_ids:
+            log.error(f'No more IP addresses in the pool {self.pool_name} to assign to the autoscaling group "{self.auto_scaling_group_name}"')
+            return
+
+        for instance_id, allocation_id in [(instances[i], allocation_id) for i, allocation_id in enumerate(allocation_ids)]:
+            try:
+                log.info(f'associate ip address {allocation_id} from {self.pool_name} to instance {instance_id}')
+                ec2.associate_address(InstanceId=instance_id, AllocationId=allocation_id)
+            except ClientError as e:
+                log.error(f'failed to add ip address {allocation_id} from {self.pool_name} to instance {instance_id}')
 
 
-def instance_id(event):
-    return event['detail']['EC2InstanceId']
+    def remove_addresses(self):
+        for allocation_id, association_id in map(lambda a : (a['AllocationId'], a['AssociationId']), self.instance_addresses):
+            try:
+                log.info(f'returned ip address {allocation_id} from instance {self.instance_id} to pool {self.pool_name}')
+                ec2.disassociate_address(AssociationId=association_id)
+            except ClientError as e:
+                log.error('failed to remove elastic ip address, %s', e)
 
-
-def instance_addresses(event, instance):
-    return filter(lambda a: 'InstanceId' in a and a['InstanceId'] == instance, addresses())
-
-
-def available_addresses(event):
-    instance_id = event['detail']['EC2InstanceId']
-    return filter(lambda a: 'InstanceId' not in a, addresses())
-
-
-def is_remove_address_event(event):
-    type = event.get('detail-type', None)
-    return type in ['EC2 Instance Terminate Successful', 'EC2 Instance Launch Unsuccessful']
-
-
-def is_add_address_event(event):
-    type = event.get('detail-type', None)
-    return type in ['EC2 Instance Terminate Unsuccessful', 'EC2 Instance Launch Successful']
-
-
-def auto_scaling_group_name(event):
-    return event['detail']['AutoScalingGroupName']
-
-
-def add_to_all_asg_instances(event):
-    """
-    ensure an ip address with all healthy associated with all healthy inservice asg instances.
-    """
-    response = autoscaling.describe_auto_scaling_groups(AutoScalingGroupName=auto_scaling_group_name(event))
-    asg = response['AutoScalingGroups'][0]
-    instances = map(lambda i: i['InstanceId'],
-                    filter(lambda i: i['LifecycleState'] == 'InService' and i['HealthStatus'] == 'Healthy',
-                           asg['Instances']))
-    all_addresses = addresses()
-    for instance in instances:
-        if filter(lambda a: a['InstanceId'] == instance, all_addresses):
-            log.debug('instance %s already has an elastic ip addresses', instance)
+    def handle(self):
+        if self.is_add_address_event:
+            self.add_addresses()
+        elif self.is_remove_address_event:
+            self.remove_addresses()
         else:
-            add_address(event, instance)
-
-def add_address(event, instance):
-    try:
-        log.info('add ip address to instance %s', instance)
-        address = next(iter(available_addresses(event)), None)
-        if address is not None:
-            log.info('associating ip address %s with instance %s', address['AllocationId'], instance)
-            ec2.associate_address(InstanceId=instance, AllocationId=address['AllocationId'])
-        else:
-            log.error('No elastic ip addresses are available to associate with instance')
-    except ClientError as e:
-        log.error('failed to add elastic ip address, %s', e)
-
-
-def remove_address(event, instance):
-    log.info('removing ip addresses from instance %s', instance)
-    for address in instance_addresses(event, instance):
-        try:
-            log.info('removing ip address %s from instance %s', address['AllocationId'], instance)
-            ec2.disassociate_address(AllocationId=address['AllocationId'])
-        except ClientError as e:
-            log.error('failed to remove elastic ip address, %s', e)
+            log.debug('ignoring event %s', self.event['event-type'])
 
 
 def handler(event, context):
     if 'source' in event and event['source'] == 'aws.autoscaling':
-        if is_add_address_event(event):
-            add_address(event, instance_id(event))
-        elif is_remove_address_event(event):
-            remove_address(event, instance_id(event))
-            add_to_all_asg_instances(event)
-        else:
-            log.warning('ignoring event %s', event.get('detail-type', ''))
+        manager = Manager(event)
+        manager.handle(event, context)
     else:
         log.error('unknown event received, %s', event)

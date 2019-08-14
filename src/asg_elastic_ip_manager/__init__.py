@@ -1,1 +1,1 @@
-from .manager import handler
+from .manager import handler, Manager
