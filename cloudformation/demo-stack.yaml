@@ -25,7 +25,7 @@ Resources:
         - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:eip/${EIP1.AllocationId}'
         - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:eip/${EIP2.AllocationId}'
       Tags:
-        EIPPoolName: eip-bastion-pool
+        asg-elastic-ip-manager-pool: bastion
 
       ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:cfn-tag-provider'
 
@@ -40,8 +40,8 @@ Resources:
       MaxSize: '3'
       DesiredCapacity: '3'
       Tags:
-        - Key: EIPPoolName
-          Value: eip-bastion-pool
+        - Key: asg-elastic-ip-manager-pool
+          Value: bastion
           PropagateAtLaunch: true
 
   LaunchConfiguration:

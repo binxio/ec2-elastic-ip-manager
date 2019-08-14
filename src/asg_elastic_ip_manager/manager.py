@@ -39,7 +39,7 @@ class Manager(object):
         response = ec2.describe_addresses(
             Filters=[
                 {"Name": "domain", "Values": ["vpc"]},
-                {"Name": "tag:EIPPoolName", "Values": [self.pool_name]},
+                {"Name": "tag:asg-elastic-ip-manager-pool", "Values": [self.pool_name]},
             ]
         )
         self.addresses = response["Addresses"]
@@ -53,7 +53,7 @@ class Manager(object):
             map(
                 lambda t: t["Value"],
                 filter(
-                    lambda t: t["Key"] == "EIPPoolName", self.auto_scaling_group["Tags"]
+                    lambda t: t["Key"] == "asg-elastic-ip-manager-pool", self.auto_scaling_group["Tags"]
                 ),
             ),
             None,
@@ -172,11 +172,11 @@ class Manager(object):
         ):
             try:
                 log.info(
-                    f"returned ip address {allocation_id} from instance {self.instance_id} to pool {self.pool_name}"
+                    f"returning ip address {allocation_id} from instance {self.instance_id} to pool {self.pool_name}"
                 )
                 ec2.disassociate_address(AssociationId=association_id)
             except ClientError as e:
-                log.error("failed to remove elastic ip address, %s", e)
+                log.error(f"failed to remove elastic ip address {allocation_id} from instance {self.instance_id}, {e}")
 
     def handle(self):
         if not self.pool_name:
