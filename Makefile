@@ -74,7 +74,7 @@ test: venv
         PYTHONPATH=$(PWD)/src pytest ../tests/test*.py
 
 fmt:
-	black src/*.py tests/*.py
+	black $(find src -name *.py) tests/*.py
 
 deploy-lambda: deploy
 	@set -x ;if aws cloudformation get-template-summary --stack-name $(NAME) >/dev/null 2>&1 ; then \

@@ -42,7 +42,6 @@ Resources:
       Tags:
         - Key: asg-elastic-ip-manager-pool
           Value: bastion
-          PropagateAtLaunch: true
 
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration

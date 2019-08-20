@@ -27,7 +27,7 @@ class Manager(object):
     def __init__(self, event: dict):
         self.event: dict = event
 
-        self.pool_name: str = ''
+        self.pool_name: str = ""
         self.auto_scaling_group: dict = {}
 
         self.get_auto_scaling_group()
@@ -53,7 +53,8 @@ class Manager(object):
             map(
                 lambda t: t["Value"],
                 filter(
-                    lambda t: t["Key"] == "asg-elastic-ip-manager-pool", self.auto_scaling_group["Tags"]
+                    lambda t: t["Key"] == "asg-elastic-ip-manager-pool",
+                    self.auto_scaling_group["Tags"],
                 ),
             ),
             None,
@@ -66,10 +67,7 @@ class Manager(object):
     @property
     def instance_addresses(self) -> List[dict]:
         return list(
-            filter(
-                lambda a: "InstanceId" in a and a["InstanceId"] == self.instance_id,
-                self.addresses,
-            )
+            filter(lambda a: a.get("InstanceId") == self.instance_id, self.addresses)
         )
 
     @property
@@ -86,16 +84,21 @@ class Manager(object):
     @property
     def is_add_address_event(self):
         return self.event.get("detail-type") in [
-            "EC2 Instance Terminate Unsuccessful",
             "EC2 Instance Launch Successful",
         ]
 
     @property
     def auto_scaling_group_name(self):
+        """
+        the name of the autoscaling group
+        """
         return self.event["detail"]["AutoScalingGroupName"]
 
     @property
     def instances(self) -> Set[str]:
+        """
+        all healthy InServices instances of the `self.auto_scaling_group`
+        """
         return set(
             map(
                 lambda i: i["InstanceId"],
@@ -109,6 +112,10 @@ class Manager(object):
 
     @property
     def attached_instances(self) -> Set[str]:
+        """
+        all instances attached to an EIP in `self.addresses`
+        :return:
+        """
         return set(
             map(
                 lambda a: a["InstanceId"],
@@ -118,13 +125,15 @@ class Manager(object):
 
     @property
     def unattached_instances(self) -> Set[str]:
+        """
+        all instances in the `self.auto_scaling_group` which do not have an IP address assigned from `self.addresses`
+        """
         return self.instances - self.attached_instances
 
     def add_addresses(self):
         """
-        ensure an ip address with all healthy associated with all healthy inservice asg instances.
+        ensure an ip address is associated with all healthy inservice asg instances.
         """
-
         instances = list(self.unattached_instances)
         if not instances:
             log.info(
@@ -163,10 +172,16 @@ class Manager(object):
                 )
 
     def remove_addresses(self):
+        """
+        disassociate all the IP addresses of the pool from the instance `self.instance_id`
+        :return:
+        """
         if not self.instance_addresses:
-            log.info(f"instance {self.instance_id} of auto scaling group {self.auto_scaling_group_name} terminated, but did not have an EIP associated")
+            log.info(
+                f"instance {self.instance_id} of auto scaling group {self.auto_scaling_group_name} terminated, but did not have an EIP associated"
+            )
             return
-        
+
         for allocation_id, association_id in map(
             lambda a: (a["AllocationId"], a["AssociationId"]), self.instance_addresses
         ):
@@ -176,7 +191,9 @@ class Manager(object):
                 )
                 ec2.disassociate_address(AssociationId=association_id)
             except ClientError as e:
-                log.error(f"failed to remove elastic ip address {allocation_id} from instance {self.instance_id}, {e}")
+                log.error(
+                    f"failed to remove elastic ip address {allocation_id} from instance {self.instance_id}, {e}"
+                )
 
     def handle(self):
         if not self.pool_name:
@@ -194,7 +211,7 @@ class Manager(object):
 
 
 def handler(event, context):
-    if "source" in event and event["source"] == "aws.autoscaling":
+    if event.get("source") == "aws.autoscaling":
         manager = Manager(event)
         manager.handle()
     else:
