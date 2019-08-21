@@ -1,5 +1,6 @@
+import copy
 import boto3
-from asg_elastic_ip_manager import handler, Manager
+from asg_elastic_ip_manager import handler
 
 event = {
     "detail-type": "EC2 Instance Launch Successful",
@@ -32,10 +33,11 @@ def get_addresses():
     response = ec2.describe_addresses(
         Filters=[
             {"Name": "domain", "Values": ["vpc"]},
-            {"Name": "tag:EIPPoolName", "Values": ["eip-bastion-pool"]},
+            {"Name": "tag:asg-elastic-ip-manager-pool", "Values": ["bastion"]},
         ]
     )
     addresses = response["Addresses"]
+    assert len(addresses) == 2
     return (
         addresses,
         list(filter(is_available_address, addresses)),
@@ -47,46 +49,80 @@ def return_all_ips_to_pool():
     for instance_id in map(lambda i: i["InstanceId"], asg["Instances"]):
         event["detail-type"] = "EC2 Instance Terminate Successful"
         event["detail"]["EC2InstanceId"] = instance_id
-        manager = Manager(event)
-        manager.handle()
+        handler(event, {})
+
+    _, available, _ = get_addresses()
+    assert len(available) == 2
 
 
 def test_remove_and_add():
-    addresses, available, allocated = get_addresses()
-    assert len(addresses) == 2
-
+    get_addresses()
     return_all_ips_to_pool()
-
-    addresses, available, _ = get_addresses()
-    assert len(available) == 2
 
     event["detail-type"] = "EC2 Instance Launch Successful"
     event["detail"]["EC2InstanceId"] = asg["Instances"][0]["InstanceId"]
-    manager = Manager(event)
-    manager.handle()
+    handler(event, {})
 
-    addresses, available, allocated = get_addresses()
+    _, available, allocated = get_addresses()
     assert len(available) == 0
 
     event["detail-type"] = "EC2 Instance Terminate Successful"
     event["detail"]["EC2InstanceId"] = allocated[0]["InstanceId"]
-    manager = Manager(event)
-    manager.handle()
+    handler(event, {})
 
-    addresses, available, _ = get_addresses()
+    _, available, _ = get_addresses()
     assert len(available) == 1
 
 
 def test_remove_non_existing_instance():
     event["detail-type"] = "EC2 Instance Terminate Successful"
     event["detail"]["EC2InstanceId"] = "i-0000000000000"
-    manager = Manager(event)
-    manager.handle()
+    handler(event, {})
 
 
 def test_add_non_existing_instance_eip():
     return_all_ips_to_pool()
     event["detail-type"] = "EC2 Instance Launch Successful"
     event["detail"]["EC2InstanceId"] = "i-0000000000000"
-    manager = Manager(event)
-    manager.handle()
+    handler(event, {})
+
+
+def test_timer():
+    get_addresses()
+    return_all_ips_to_pool()
+
+    event = {"detail-type": "Scheduled Event", "source": "aws.events", "detail": {}}
+    handler(event, {})
+
+    _, available, _ = get_addresses()
+    assert len(available) == 0
+
+    event = {"detail-type": "Scheduled Event", "source": "aws.events", "detail": {}}
+    handler(event, {})
+
+    _, available, _ = get_addresses()
+    assert len(available) == 0
+
+
+def test_invalid_asg():
+    get_addresses()
+    return_all_ips_to_pool()
+
+    event2 = copy.deepcopy(event)
+    event2["detail"]["AutoScalingGroupName"] = "does-not-exist"
+    handler(event2, {})
+
+    _, available, _ = get_addresses()
+    assert len(available) == 2
+
+
+def test_invalid_event():
+    get_addresses()
+    return_all_ips_to_pool()
+
+    event2 = copy.deepcopy(event)
+    event2["source"] = "aws.unknown"
+    handler(event2, {})
+
+    _, available, _ = get_addresses()
+    assert len(available) == 2

@@ -66,7 +66,17 @@ Resources:
       FunctionName: !GetAtt Function.Arn
       Principal: events.amazonaws.com
 
-  Rule:
+  Sync:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: asg-elastic-ip-manager sync
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Id: asg-elastic-ip-manager
+          Arn: !GetAtt Function.Arn
+
+  Trigger:
     Type: AWS::Events::Rule
     Properties:
       State: ENABLED

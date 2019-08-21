@@ -42,9 +42,21 @@ Resources:
       Tags:
         - Key: asg-elastic-ip-manager-pool
           Value: bastion
+          PropagateAtLaunch: true
 
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
       ImageId: !Ref 'Ami'
-      InstanceType: t3.small
+      InstanceType: t3.micro
+
+  UnmanagedAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub 'unmanaged-${AWS::StackName}'
+      VPCZoneIdentifier: !Ref 'Subnets'
+      LaunchConfigurationName: !Ref 'LaunchConfiguration'
+      MinSize: '0'
+      MaxSize: '1'
+      DesiredCapacity: '0'
+
