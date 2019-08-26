@@ -1,6 +1,6 @@
 include Makefile.mk
 
-NAME=asg-elastic-ip-manager
+NAME=elastic-ip-manager
 AWS_REGION=eu-central-1
 S3_BUCKET_PREFIX=binxio-public
 S3_BUCKET=$(S3_BUCKET_PREFIX)-$(AWS_REGION)
@@ -85,7 +85,7 @@ deploy-lambda: deploy
 	aws cloudformation $$CFN_COMMAND-stack \
 		--capabilities CAPABILITY_IAM \
 		--stack-name $(NAME) \
-		--template-body file://cloudformation/asg-elastic-ip-manager.yaml \
+		--template-body file://cloudformation/elastic-ip-manager.yaml \
 		--parameters ParameterKey=CFNCustomProviderZipFileName,ParameterValue=lambdas/$(NAME)-$(VERSION).zip; \
 	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME) ;
 

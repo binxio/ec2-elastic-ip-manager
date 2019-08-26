@@ -65,7 +65,6 @@ class Manager(object):
         self.pool_name: str = pool_name
         self.addresses: List[EIP] = []
         self.instances: List[EC2Instance] = []
-        self.refresh()
 
     def refresh(self):
         self.addresses = get_pool_addresses(self.pool_name)
@@ -102,6 +101,7 @@ class Manager(object):
         """
         ensure an ip address is associated with all healthy inservice asg instances.
         """
+        self.refresh()
         instances = list(self.unattached_instances)
         if not instances:
             log.info(
@@ -141,6 +141,7 @@ class Manager(object):
         """
         disassociate all the IP addresses of the pool from the instance `self.instance_id`
         """
+        self.refresh()
         if not self.instance_addresses(instance_id):
             log.info(
                 f'instance "{instance_id}" but did not have an EIP from the pool associated'
@@ -209,7 +210,6 @@ def handler(event: dict, context: dict):
         manager = Manager(instance.pool_name)
         if is_address_removed_event(event):
             manager.remove_addresses(instance.instance_id)
-            manager.refresh()
         manager.add_addresses()
 
     elif is_timer(event):
