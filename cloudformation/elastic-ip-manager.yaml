@@ -24,10 +24,10 @@ Resources:
         - Effect: Allow
           Resource: "*"
           Action:
-          - ec2:DescribeAddresses
-          - ec2:AssociateAddress
-          - ec2:DisassociateAddress
-          - autoscaling:DescribeAutoScalingGroups
+            - ec2:DescribeAddresses
+            - ec2:AssociateAddress
+            - ec2:DisassociateAddress
+            - tag:GetTagValues
 
   LambdaRole:
     Type: AWS::IAM::Role
@@ -38,11 +38,11 @@ Resources:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - lambda.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
 
   Function:
     Type: AWS::Lambda::Function
@@ -83,15 +83,10 @@ Resources:
       EventPattern: !Sub |
         {
           "source": [
-            "aws.autoscaling"
+            "aws.ec2"
           ],
           "detail-type": [
-            "EC2 Instance Launch Successful",
-            "EC2 Instance Terminate Successful",
-            "EC2 Instance Launch Unsuccessful",
-            "EC2 Instance Terminate Unsuccessful",
-            "EC2 Instance-launch Lifecycle Action",
-            "EC2 Instance-terminate Lifecycle Action"
+            "EC2 Instance State-change Notification",
           ]
         }
       Targets:
