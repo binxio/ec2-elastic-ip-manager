@@ -7,7 +7,7 @@ Parameters:
     Default: ''
   CFNCustomProviderZipFileName:
     Type: String
-    Default: lambdas/elastic-ip-manager-latest.zip
+    Default: lambdas/elastic-ip-manager-0.1.0.zip
 
 Conditions:
   UsePublicBucket: !Equals
