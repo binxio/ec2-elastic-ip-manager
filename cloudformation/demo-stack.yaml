@@ -18,6 +18,7 @@ Resources:
     Properties:
       Domain: vpc
 
+
   EIPBastionPoolTags:
     Type: Custom::Tag
     Properties:

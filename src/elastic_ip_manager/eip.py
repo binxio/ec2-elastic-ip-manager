@@ -1,4 +1,13 @@
-from typing import Optional
+import logging
+import os
+from typing import List, Optional
+
+import boto3
+
+log = logging.getLogger()
+log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+ec2 = boto3.client("ec2")
+
 
 class EIP(dict):
     def __init__(self, instance: dict):
@@ -29,7 +38,7 @@ class EIP(dict):
         return {t["Key"]: t["Value"] for t in self["Tags"]}
 
     def __key(self):
-        return self['AllocationId']
+        return self["AllocationId"]
 
     def __hash__(self):
         return hash(self.__key())
@@ -39,3 +48,13 @@ class EIP(dict):
 
     def __str__(self):
         return str(self.__key())
+
+
+def get_pool_addresses(pool_name: str) -> List[EIP]:
+    response = ec2.describe_addresses(
+        Filters=[
+            {"Name": "domain", "Values": ["vpc"]},
+            {"Name": "tag:elastic-ip-manager-pool", "Values": [pool_name]},
+        ]
+    )
+    return [EIP(a) for a in response["Addresses"]]

@@ -71,8 +71,8 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       Description: elastic-ip-manager sync
-      ScheduleExpression: rate(1 minute)
-      State: DISABLED
+      ScheduleExpression: rate(2 minute)
+      State: ENABLED
       Targets:
         - Id: elastic-ip-manager
           Arn: !GetAtt Function.Arn

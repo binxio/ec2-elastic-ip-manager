@@ -13,52 +13,15 @@ import os
 import boto3
 import logging
 from typing import List, Set, Optional
-from .eip import EIP
-from .ec2_instance import EC2Instance
+from .eip import EIP, get_pool_addresses
+from .ec2_instance import EC2Instance, get_pool_instances, describe_pool_instance
 
 
 from botocore.exceptions import ClientError
 
 log = logging.getLogger()
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
-
 ec2 = boto3.client("ec2")
-
-
-def get_pool_addresses(pool_name: str) -> List[EIP]:
-    response = ec2.describe_addresses(
-        Filters=[
-            {"Name": "domain", "Values": ["vpc"]},
-            {"Name": "tag:elastic-ip-manager-pool", "Values": [pool_name]},
-        ]
-    )
-    return [EIP(a) for a in response["Addresses"]]
-
-
-def describe_instance(instance_id: str) -> Optional[EC2Instance]:
-    try:
-        response = ec2.describe_instances(InstanceIds=[instance_id])
-        return EC2Instance(response["Reservations"][0]["Instances"][0])
-    except ClientError as e:
-        log.error(f'failed to describe instance "{instance_id}", {e}')
-    return None
-
-
-def get_pool_instances(pool_name) -> List[EC2Instance]:
-    """
-    get all running ec2 instances with tagged elastic-ip-manager-pool with `pool_name`
-    """
-    result = []
-    for response in ec2.get_paginator("describe_instances").paginate(
-        Filters=[
-            {"Name": "tag:elastic-ip-manager-pool", "Values": [pool_name]},
-            {"Name": "instance-state-name", "Values": ["running"]},
-        ]
-    ):
-        for reservation in response["Reservations"]:
-            result.extend([EC2Instance(i) for i in reservation["Instances"]])
-    return result
-
 
 class Manager(object):
     def __init__(self, pool_name: str):
@@ -127,7 +90,7 @@ class Manager(object):
         ]:
             try:
                 log.info(
-                    f'associate ip address {allocation_id} from to "{self.pool_name}" to instance {instance_id}'
+                    f'associate ip address {allocation_id} from "{self.pool_name}" to instance {instance_id}'
                 )
                 ec2.associate_address(
                     InstanceId=instance_id, AllocationId=allocation_id
@@ -200,7 +163,7 @@ def get_all_pool_names() -> List[str]:
 
 def handler(event: dict, context: dict):
     if is_add_address_event(event) or is_address_removed_event(event):
-        instance = describe_instance(event.get("detail").get("instance-id"))
+        instance = describe_pool_instance(event.get("detail").get("instance-id"))
         if not instance:
             return
 
