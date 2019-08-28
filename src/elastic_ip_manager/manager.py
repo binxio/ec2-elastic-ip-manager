@@ -107,7 +107,7 @@ class Manager(object):
         self.refresh()
         if not self.instance_addresses(instance_id):
             log.info(
-                f'instance "{instance_id}" but did not have an EIP from the pool associated'
+                f'EIP from the pool {self.pool_name} no longer associated with instance "{instance_id}"'
             )
             return
 
