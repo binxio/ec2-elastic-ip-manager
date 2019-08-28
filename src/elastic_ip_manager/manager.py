@@ -72,17 +72,17 @@ class Manager(object):
             )
             return
 
-        allocation_ids = list(map(lambda a: a.allocation_id, self.available_addresses))
-        if len(instances) > len(allocation_ids):
-            log.warning(
-                f'The Elastic IP pool "{self.pool_name}" is short of {len(instances) - len(allocation_ids)} addresses'
-            )
-
         if not allocation_ids:
             log.error(
                 f'No more IP addresses in the pool "{self.pool_name}" to assign to the instances'
             )
             return
+
+        allocation_ids = list(map(lambda a: a.allocation_id, self.available_addresses))
+        if len(instances) > len(allocation_ids):
+            log.warning(
+                f'The Elastic IP pool "{self.pool_name}" is short of {len(instances) - len(allocation_ids)} addresses'
+            )
 
         for instance_id, allocation_id in [
             (instances[i].instance_id, allocation_id)
