@@ -71,7 +71,7 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       Description: elastic-ip-manager sync
-      ScheduleExpression: rate(2 minute)
+      ScheduleExpression: rate(5 minutes)
       State: ENABLED
       Targets:
         - Id: elastic-ip-manager
@@ -81,7 +81,7 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       State: ENABLED
-      EventPattern: !Sub |
+      EventPattern: |
         {
           "source": [
             "aws.ec2"
