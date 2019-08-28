@@ -163,18 +163,21 @@ class Manager(object):
                 )
 
 
+def is_state_change_event(event):
+    return event.get("source") == "aws.ec2" and event.get("detail-type") in [
+        "EC2 Instance State-change Notification"
+    ]
+
+
 def is_add_address_event(event):
     return (
-        event.get("source") == "aws.ec2"
-        and event.get("detail-type") in ["EC2 Instance State-change Notification"]
-        and event.get("detail").get("state") == "running"
+        is_state_change_event(event) and event.get("detail").get("state") == "running"
     )
 
 
 def is_address_removed_event(event):
     return (
-        event.get("source") == "aws.ec2"
-        and event.get("detail-type") in ["EC2 Instance State-change Notification"]
+        is_state_change_event(event)
         and event.get("detail").get("state") == "terminated"
     )
 
@@ -216,6 +219,8 @@ def handler(event: dict, context: dict):
         for pool_name in get_all_pool_names():
             manager = Manager(pool_name)
             manager.add_addresses()
+    elif is_state_change_event(event):
+        log.debug("ignored state change event %s", event.get("detail", {}).get("state"))
     else:
         log.error(
             "ignoring event %s from source %s",
