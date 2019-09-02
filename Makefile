@@ -100,7 +100,7 @@ demo:
 		export CFN_COMMAND=create; export CFN_TIMEOUT="--timeout-in-minutes 10" ;\
 	fi ;\
 	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
-        export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?GatewayId == null]].Associations[].SubnetId' \
+        export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?DestinationCidrBlock == `0.0.0.0/0` && GatewayId]].Associations[].SubnetId' \
                                 describe-route-tables --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
 	echo "$$CFN_COMMAND demo in default VPC $$VPC_ID, subnets $$SUBNET_IDS" ; \
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] ) && \
