@@ -23,6 +23,7 @@ log = logging.getLogger()
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 ec2 = boto3.client("ec2")
 
+
 class Manager(object):
     def __init__(self, pool_name: str):
         self.pool_name: str = pool_name
@@ -139,10 +140,11 @@ def is_add_address_event(event):
 
 
 def is_address_removed_event(event):
-    return (
-        is_state_change_event(event)
-        and event.get("detail").get("state") == "terminated"
-    )
+    return is_state_change_event(event) and event.get("detail").get("state") in [
+        "stopping",
+        "shutting-down",
+        "terminated",
+    ]
 
 
 def is_timer(event) -> bool:

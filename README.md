@@ -1,7 +1,7 @@
 # AWS Elastic IP manager
 The elastic-ip-manager, manages the assignment of a pool of Elastic IP addresses to instances. When
-the instance is terminated, the elastic ip address is removed. When a new instance is started, an elastic ip
-is assigned to it.
+the instance is stopped or terminated, the elastic ip address is removed. When a new instance is started, an elastic 
+ip is assigned to it.
 
 ## Who does it work?
 The manager will listen to all EC2 instance state change notifications. When an instance with the tag `elastic-ip-manager-pool` 

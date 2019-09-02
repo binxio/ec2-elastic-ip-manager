@@ -1,0 +1,1 @@
+For these tests to work, you first need to deploy the CloudFormation [../cloudformation/demo-stack.yaml]
