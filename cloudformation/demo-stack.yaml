@@ -44,10 +44,40 @@ Resources:
         - Key: elastic-ip-manager-pool
           Value: bastion
           PropagateAtLaunch: true
+        - Key: Name
+          Value: bastion
+          PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 0
+        MaxBatchSize: 3
+        WaitOnResourceSignals: false
+
+
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Bastion host
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          Description: ssh from the internet
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          Description: ping from the internet
+          CidrIp: 0.0.0.0/0
+
 
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
       ImageId: !Ref 'Ami'
+      AssociatePublicIpAddress: true
       InstanceType: t3.micro
+      SecurityGroups:
+        - !Ref BastionSecurityGroup
 
