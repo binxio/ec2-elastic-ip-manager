@@ -85,8 +85,8 @@ class Manager(object):
             )
 
         for instance_id, allocation_id in [
-            (instances[i].instance_id, allocation_id)
-            for i, allocation_id in enumerate(allocation_ids)
+            (instances[i].instance_id, allocation_ids[i])
+            for i in range(0, min(len(instances), len(allocation_ids)))
         ]:
             try:
                 log.info(
