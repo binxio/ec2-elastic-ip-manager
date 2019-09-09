@@ -22,7 +22,7 @@ class EIP(dict):
         return self.get("AssociationId")
 
     @property
-    def is_available(self) -> bool:
+    def is_associated(self) -> bool:
         return self.association_id is not None
 
     @property

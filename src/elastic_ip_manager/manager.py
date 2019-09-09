@@ -1,13 +1,12 @@
 """
 AWS Auto Scaling Elastic IP manager
 
-Manages the ip addresses associated to an auto scaling group instance.
+Manages Elastic IP addresses associated to ec2 instances.
 
-When a lifecycle terminating event occurs, the manager will remove all the elastic ip addresses that are associated
+When a instances is stopped or terminated, the manager will remove all the EIPs that are associated
 with the instance.
 
-When a lifecycle launching event completed successfully, the manager will add a elastic ip address with the instance. If
-no elastic ips are available, it will cancel the launch event.
+When a instance is started, the manager will add an Elastic IP address to the instance.
 """
 import os
 import boto3
@@ -39,7 +38,7 @@ class Manager(object):
 
     @property
     def available_addresses(self) -> List[EIP]:
-        return list(filter(lambda a: not a.is_available, self.addresses))
+        return list(filter(lambda a: not a.is_associated, self.addresses))
 
     @property
     def attached_instances(self) -> Set[EC2Instance]:
