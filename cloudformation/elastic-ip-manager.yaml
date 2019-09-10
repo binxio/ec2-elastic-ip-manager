@@ -59,6 +59,7 @@ Resources:
       Handler: elastic_ip_manager.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
+      Timeout: 600
 
   Permission:
     Type: AWS::Lambda::Permission
