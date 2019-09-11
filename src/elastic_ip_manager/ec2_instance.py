@@ -20,6 +20,10 @@ class EC2Instance(dict):
         return self["InstanceId"]
 
     @property
+    def primary_network_interface_id(self):
+        return self["NetworkInterfaces"][0]["NetworkInterfaceId"] if self["NetworkInterfaces"] else None
+
+    @property
     def pool_name(self) -> str:
         return self.tags.get("elastic-ip-manager-pool", None)
 

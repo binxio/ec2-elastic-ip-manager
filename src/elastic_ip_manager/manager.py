@@ -84,20 +84,20 @@ class Manager(object):
                 f'The Elastic IP pool "{self.pool_name}" is short of {len(instances) - len(allocation_ids)} addresses'
             )
 
-        for instance_id, allocation_id in [
-            (instances[i].instance_id, allocation_ids[i])
+        for instance_id, network_interface_id, allocation_id in [
+            (instances[i].instance_id, instances[i].primary_network_interface_id, allocation_ids[i])
             for i in range(0, min(len(instances), len(allocation_ids)))
         ]:
             try:
                 log.info(
-                    f'associate ip address {allocation_id} from "{self.pool_name}" to instance {instance_id}'
+                    f'associate ip address {allocation_id} from "{self.pool_name}" to network interface {network_interface_id} of instance {instance_id}'
                 )
                 ec2.associate_address(
-                    InstanceId=instance_id, AllocationId=allocation_id
+                    NetworkInterfaceId=network_interface_id, AllocationId=allocation_id
                 )
             except ClientError as e:
                 log.error(
-                    f'failed to add ip address "{allocation_id}" from "{self.pool_name}" to instance "{instance_id}", {e}'
+                    f'failed to associate ip address "{allocation_id}" from "{self.pool_name}" to network interface {network_interface_id} of instance "{instance_id}", {e}'
                 )
 
     def remove_addresses(self, instance_id: str):
