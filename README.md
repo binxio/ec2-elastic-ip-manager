@@ -18,14 +18,20 @@ You can start using the elastic IP manager, in three simple steps:
 To deploy the provider, type:
 
 ```sh
+git clone https://github.com/binxio/cfn-tag-provider.git
+cd cfn-tag-provider
+aws cloudformation deploy \
+        --capabilities CAPABILITY_IAM \
+        --stack-name cfn-tag-provider \
+        --template ./cloudformation/cfn-resource-provider.yaml
+
+cd ..
 git clone https://github.com/binxio/ec2-elastic-ip-manager.git
 cd ec2-elastic-ip-manager
-aws cloudformation create-stack \
+aws cloudformation deploy \
         --capabilities CAPABILITY_IAM \
         --stack-name elastic-ip-manager \
-        --template-body file://./cloudformation/elastic-ip-manager.yaml
-
-aws cloudformation wait stack-create-complete  --stack-name elastic-ip-manager
+        --template ./cloudformation/elastic-ip-manager.yaml
 ```
 ## Create a pool of Elastic IP addresses
 Create a pool of elastic ip addresses, and tag them with an `elastic-ip-manager-pool` value:
@@ -67,12 +73,15 @@ That is all. If you want to see it all in action, deploy the demo.
 In order to deploy the demo, type:
 
 ```sh
-aws cloudformation create-stack \
+export VPC_ID=$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs)
+export SUBNET_IDS=$$(aws ec2 describe-subnets --output text \
+	--filters Name=vpc-id,Values=$$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' | \
+	tr '\t', ',')
+aws cloudformation deploy \
         --capabilities CAPABILITY_NAMED_IAM \
         --stack-name elastic-ip-manager-demo \
-        --template-body file://./cloudformation/demo-stack.yaml
-
-aws cloudformation wait stack-create-complete  --stack-name elastic-ip-manager-demo
+        --template ./cloudformation/demo-stack.yaml \
+        --parameter-overrides VPC=$VPC_ID Subnets=$SUBNET_IDS
 ```
 
 ## Alternatives

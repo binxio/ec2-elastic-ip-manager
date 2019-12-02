@@ -94,23 +94,15 @@ delete-lambda:
 	aws cloudformation wait stack-delete-complete  --stack-name $(NAME)
 
 demo: 
-	@if aws cloudformation get-template-summary --stack-name $(NAME)-demo >/dev/null 2>&1 ; then \
-		export CFN_COMMAND=update; export CFN_TIMEOUT="" ;\
-	else \
-		export CFN_COMMAND=create; export CFN_TIMEOUT="--timeout-in-minutes 10" ;\
-	fi ;\
 	export VPC_ID=$$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs) ; \
-        export SUBNET_IDS=$$(aws ec2 --output text --query 'RouteTables[?Routes[?DestinationCidrBlock == `0.0.0.0/0` && GatewayId]].Associations[].SubnetId' \
-                                describe-route-tables --filters Name=vpc-id,Values=$$VPC_ID | tr '\t' ','); \
+        export SUBNET_IDS=$$(aws ec2 describe-subnets --output text --filters Name=vpc-id,Values=$$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' | tr '\t', ','); \
 	echo "$$CFN_COMMAND demo in default VPC $$VPC_ID, subnets $$SUBNET_IDS" ; \
         ([[ -z $$VPC_ID ]] || [[ -z $$SUBNET_IDS ]] ) && \
                 echo "Either there is no default VPC in your account or there are no subnets in the default VPC" && exit 1 ; \
-	aws cloudformation $$CFN_COMMAND-stack --stack-name $(NAME)-demo \
-		--template-body file://cloudformation/demo-stack.yaml  \
+	aws cloudformation deploy --stack-name $(NAME)-demo \
+		--template ./cloudformation/demo-stack.yaml  \
 		$$CFN_TIMEOUT \
-		--parameters 	ParameterKey=VPC,ParameterValue=$$VPC_ID \
-				ParameterKey=Subnets,ParameterValue=\"$$SUBNET_IDS\" ;\
-	aws cloudformation wait stack-$$CFN_COMMAND-complete --stack-name $(NAME)-demo ;
+		--parameter-overrides 	VPC=$$VPC_ID Subnets=$$SUBNET_IDS ;\
 
 
 delete-demo:
