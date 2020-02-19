@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Elastic IP pool for tagged hosts
+
+Parameters:
+  PoolName:
+    Type: String
+    Default: ''
+    Description: Instances with a elastic-ip-manager-pool tag with this value, will get EIP's from this pool
+
+Resources:
+  EIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+         -
+          Key: "elastic-ip-manager-pool"
+          Value: !Ref PoolName
+  EIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+         -
+            Key: "elastic-ip-manager-pool"
+            Value: !Ref PoolName
+  EIP3:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+         -
+           Key: "elastic-ip-manager-pool"
+           Value: !Ref PoolName

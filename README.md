@@ -8,47 +8,41 @@ The manager will listen to all EC2 instance state change notifications. When an 
 reaches the state running, it will assign a free elastic ip addresses with the same tag and tag value.
 
 ## How do I use it?
-You can start using the elastic IP manager, in three simple steps:
+You can start using the elastic IP manager, in two simple steps:
 
-1. deploy the elastic-ip-manager
-2. create a pool of tagged elastic IP addresses
-3. create an auto scaling group of tagged instances
+1. create a pool of tagged elastic IP addresses
+2. create an auto scaling group of tagged instances OR adjust autoscaling group of existing ones
 
 ## deploy the elastic-ip-manager
 To deploy the provider, type:
-
+~
 ```sh
-git clone https://github.com/binxio/cfn-tag-provider.git
-cd cfn-tag-provider
-aws cloudformation deploy \
-        --capabilities CAPABILITY_IAM \
-        --stack-name cfn-tag-provider \
-        --template ./cloudformation/cfn-resource-provider.yaml
-
 cd ..
 git clone https://github.com/binxio/ec2-elastic-ip-manager.git
 cd ec2-elastic-ip-manager
-aws cloudformation deploy \
+LAMBDA_BUCKET_PREFIX=binxio-public
+LAMBDA_BUCKET_REGION=eu-central-1    
+make S3_BUCKET_PREFIX=${LAMBDA_BUCKET_PREFIX:-binxio-public} AWS_REGION=${LAMBDA_BUCKET_REGION:-eu-central-1} deploy
+
+aws cloudformation create-stack \
         --capabilities CAPABILITY_IAM \
         --stack-name elastic-ip-manager \
-        --template ./cloudformation/elastic-ip-manager.yaml
+        --template-body file://./cloudformation/elastic-ip-manager.yaml \
+        --parameters ParameterKey=LambdaS3Bucket,ParameterValue=${LAMBDA_BUCKET_PREFIX}-${LAMBDA_BUCKET_REGION} \
+        --parameters ParameterKey=CFNCustomProviderZipFileName,ParameterValue=lambdas/elastic-ip-manager-latest.zip
 ```
 ## Create a pool of Elastic IP addresses
 Create a pool of elastic ip addresses, and tag them with an `elastic-ip-manager-pool` value:
 ```
-  EIPBastionPoolTags:
-    Type: Custom::Tag
+  EIP1:
+    Type: AWS::EC2::EIP
     Properties:
-      ResourceARN:
-        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:eip/${EIP1.AllocationId}'
-        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:eip/${EIP2.AllocationId}'
+      Domain: vpc
       Tags:
-        elastic-ip-manager-pool: bastion
-
-      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:cfn-tag-provider'
+        -
+          Key: "elastic-ip-manager-pool"
+          Value: bastion
 ```
-In this example we are using the [custom tag provider](https://github.com/binxio/cfn-tag-provider),
-as the `AWS::EC2::EIP` does not (yet) support tags.
 
 ## Create an auto scaling group
 Create an auto scaling group and apply the tag `elastic-ip-manager-pool` to all the instances:
@@ -67,6 +61,16 @@ this by subscribing to EC2 state change events. It will not do anything on insta
 tag `elastic-ip-manager-pool`. The elastic IP manager also syncs the state every 5 minutes, to ensure that we are eventually
 consistent in the face of errors.
 
+## Adjust existing auto scaling group
+If an auto scaling group with instances already exist, 
+
+    aws autoscaling create-or-update-tags --tags ResourceId=elastic-ip-manager-demo,ResourceType=auto-scaling-group,Key=elastic-ip-manager-pool,Value=bastion,PropagateAtLaunch=true 
+
+    instances=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names elastic-ip-manager-demo | jq -r '..|.InstanceId?| select(. != null)' | tr '\n' ' ')
+
+    aws ec2 create-tags --resources `echo $instances` --tags Key=elastic-ip-manager-pool,Value=bastion
+
+
 That is all. If you want to see it all in action, deploy the demo.
 
 ## Deploy the demo
@@ -74,14 +78,14 @@ In order to deploy the demo, type:
 
 ```sh
 export VPC_ID=$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs)
-export SUBNET_IDS=$$(aws ec2 describe-subnets --output text \
-	--filters Name=vpc-id,Values=$$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' | \
-	tr '\t', ',')
-aws cloudformation deploy \
-        --capabilities CAPABILITY_NAMED_IAM \
-        --stack-name elastic-ip-manager-demo \
-        --template ./cloudformation/demo-stack.yaml \
-        --parameter-overrides VPC=$VPC_ID Subnets=$SUBNET_IDS
+export SUBNET_IDS=$(aws ec2 describe-subnets --output text \
+--filters Name=vpc-id,Values=$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' | \
+tr '\t', '\,')
+
+aws cloudformation create-stack --stack-name elastic-ip-manager-demo\
+     --template-body file://./cloudformation/demo-stack.yaml\
+     --parameters ParameterKey=VPC,ParameterValue=$VPC_ID ParameterKey=Subnets,ParameterValue=\"$SUBNET_IDS\"
+
 ```
 
 ## Alternatives

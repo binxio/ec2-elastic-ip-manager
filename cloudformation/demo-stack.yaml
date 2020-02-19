@@ -13,23 +13,26 @@ Resources:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
+      Tags:
+        -
+          Key: "elastic-ip-manager-pool"
+          Value: bastion
   EIP2:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
-
-
-  EIPBastionPoolTags:
-    Type: Custom::Tag
-    Properties:
-      ResourceARN:
-        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:eip/${EIP1.AllocationId}'
-        - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:eip/${EIP2.AllocationId}'
       Tags:
-        elastic-ip-manager-pool: bastion
-
-      ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:cfn-tag-provider'
-
+        -
+          Key: "elastic-ip-manager-pool"
+          Value: bastion
+  EIP3:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        -
+          Key: "elastic-ip-manager-pool"
+          Value: bastion
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
