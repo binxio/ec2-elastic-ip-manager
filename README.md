@@ -74,18 +74,33 @@ If an auto scaling group with instances already exist,
 That is all. If you want to see it all in action, deploy the demo.
 
 ## Deploy the demo
-In order to deploy the demo, type:
 
+### Using CloudFormation Stack
+
+Run these commands to deploy the demo using CloudFormation Stack:
 ```sh
 export VPC_ID=$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs)
 export SUBNET_IDS=$(aws ec2 describe-subnets --output text \
---filters Name=vpc-id,Values=$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' | \
-tr '\t', '\,')
+  --filters Name=vpc-id,Values=$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' \
+  | tr '\t', '\,')
 
-aws cloudformation create-stack --stack-name elastic-ip-manager-demo\
-     --template-body file://./cloudformation/demo-stack.yaml\
+aws cloudformation create-stack --stack-name elastic-ip-manager-demo \
+     --template-body file://./cloudformation/demo-stack.yaml \
      --parameters ParameterKey=VPC,ParameterValue=$VPC_ID ParameterKey=Subnets,ParameterValue=\"$SUBNET_IDS\"
+```
 
+### Using terraform
+
+Make sure you have terraform 0.12+ installed and run these commands:
+```sh
+export VPC_ID=$(aws ec2  --output text --query 'Vpcs[?IsDefault].VpcId' describe-vpcs)
+export SUBNET_LIST=$(aws ec2 describe-subnets --output json \
+  --filters Name=vpc-id,Values=$VPC_ID Name=default-for-az,Values=true --query 'Subnets[?MapPublicIpOnLaunch].SubnetId' \
+  | tr -d '\n ')
+
+cd ./terraform/demo
+terraform init
+terraform apply -var="vpc_id=$VPC_ID" -var="subnets=$SUBNET_LIST"
 ```
 
 ## Alternatives
