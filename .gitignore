@@ -107,3 +107,8 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
