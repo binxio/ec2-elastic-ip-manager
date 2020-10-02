@@ -8,6 +8,8 @@ Parameters:
   CFNCustomProviderZipFileName:
     Type: String
     Default: lambdas/elastic-ip-manager-0.1.6.zip
+  OpsGenieKey:
+    Type: String
 
 Conditions:
   UsePublicBucket: !Equals
@@ -44,6 +46,16 @@ Resources:
               Service:
                 - lambda.amazonaws.com
             Action: sts:AssumeRole
+      Policies:
+        - PolicyName: custom-metrics
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+
 
   Function:
     Type: AWS::Lambda::Function
@@ -94,3 +106,59 @@ Resources:
       Targets:
         - Id: elastic-ip-manager
           Arn: !GetAtt Function.Arn
+
+  OpsGenieTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Sub https://api.opsgenie.com/v1/json/cloudwatch?apiKey=${OpsGenieKey}
+          Protocol: https
+      TopicName: !Sub ${AWS::StackName}-opsgenie-de
+
+  ## Alarms
+  TooFewEipAddressesAvailable:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: |
+        Triggered when there is too few free elastic IPs left to allocate in fizz-egent-eip-pool
+        oncall:false
+      AlarmName: !Sub ${AWS::StackName}-too-few-eip-addresses-left
+      OKActions:
+        - !Ref OpsGenieTopic
+      AlarmActions:
+        - !Ref OpsGenieTopic
+      Dimensions:
+        - Name: EipPoolName
+          Value: fizz-agent-eip-pool
+      Namespace: S24/FiZZ
+      MetricName: Available-EIPs
+      Statistic: Sum
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ComparisonOperator: LessThanOrEqualToThreshold
+      Period: 300
+      Threshold: 3
+      TreatMissingData: breaching
+
+  LambdaHasErrors:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: |
+        Too many invocation errors of the elastic-ip-manager lambda
+        oncall:false
+      AlarmName: !Sub ${AWS::StackName}-elastic-ip-manager-lambda-errors
+      AlarmActions:
+        - !Ref OpsGenieTopic
+      OKActions:
+        - !Ref OpsGenieTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref Function
+      Namespace: AWS/Lambda
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Period: 60
+      Statistic: Sum
+      Threshold: 1
+      TreatMissingData: notBreaching

@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  BucketName:
+    Type: String
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: '2008-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - s3:PutObject
+              - s3:PutObjectAcl
+            Resource: !Sub arn:aws:s3:::${BucketName}/*
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - s3:ListBucketVersions
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource: !Sub arn:aws:s3:::${BucketName}
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub arn:aws:s3:::${BucketName}/*

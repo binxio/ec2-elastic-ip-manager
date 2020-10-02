@@ -15,12 +15,12 @@ from typing import List, Set, Optional
 from .eip import EIP, get_pool_addresses
 from .ec2_instance import EC2Instance, get_pool_instances, describe_pool_instance
 
-
 from botocore.exceptions import ClientError
 
 log = logging.getLogger()
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 ec2 = boto3.client("ec2")
+cloudwatch = boto3.client("cloudwatch")
 
 
 class Manager(object):
@@ -48,7 +48,7 @@ class Manager(object):
         result = set()
         for instance in self.instances:
             if list(
-                filter(lambda a: a.instance_id == instance.instance_id, self.addresses)
+                    filter(lambda a: a.instance_id == instance.instance_id, self.addresses)
             ):
                 result.add(instance)
         return result
@@ -112,8 +112,8 @@ class Manager(object):
             return
 
         for allocation_id, association_id in map(
-            lambda a: (a.allocation_id, a.association_id),
-            self.instance_addresses(instance_id),
+                lambda a: (a.allocation_id, a.association_id),
+                self.instance_addresses(instance_id),
         ):
             try:
                 log.info(
@@ -134,7 +134,7 @@ def is_state_change_event(event):
 
 def is_add_address_event(event):
     return (
-        is_state_change_event(event) and event.get("detail").get("state") == "running"
+            is_state_change_event(event) and event.get("detail").get("state") == "running"
     )
 
 
@@ -156,10 +156,38 @@ def get_all_pool_names() -> List[str]:
     result = []
     resourcetagging = boto3.client("resourcegroupstaggingapi")
     for values in resourcetagging.get_paginator("get_tag_values").paginate(
-        Key="elastic-ip-manager-pool"
+            Key="elastic-ip-manager-pool"
     ):
         result.extend(values["TagValues"])
     return result
+
+
+def put_cloudwatch_metric(pool_name: str):
+    """
+    Puts a customs metric indicating how many free EIPs remaining in a specific pool
+    :param pool_name: the pool from which the EIP will be assigned
+    """
+    log.info("Putting remaining elastic ips metric")
+    remaining_eips = len(list(filter(lambda eip: "AssociationId" not in eip, get_pool_addresses(pool_name))))
+    log.info(f"Free elastic IPs remaining {remaining_eips}")
+    response = cloudwatch.put_metric_data(
+        MetricData=[
+            {
+                'MetricName': 'Available-EIPs',
+                'Dimensions': [
+                    {
+                        'Name': 'EipPoolName',
+                        'Value': pool_name
+                    }
+                ],
+                'Unit': 'None',
+                'Value': remaining_eips
+            },
+        ],
+        Namespace='S24/FiZZ'
+    )
+
+    log.debug(response)
 
 
 def handler(event: dict, context: dict):
@@ -183,6 +211,8 @@ def handler(event: dict, context: dict):
         for pool_name in get_all_pool_names():
             manager = Manager(pool_name)
             manager.add_addresses()
+            put_cloudwatch_metric(pool_name)
+
     elif is_state_change_event(event):
         log.debug("ignored state change event %s", event.get("detail", {}).get("state"))
     else:
