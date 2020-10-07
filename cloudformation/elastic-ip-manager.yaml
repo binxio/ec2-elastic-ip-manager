@@ -120,8 +120,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmDescription: |
-        Triggered when there is too few free elastic IPs left to allocate in fizz-egent-eip-pool
-        oncall:false
+        "Triggered when there is too few free elastic IPs left to allocate in fizz-egent-eip-pool (https://eu-west-1.console.aws.amazon.com/cloudwatch/home?region=eu-west-1#dashboards:name=fizz-ec2-instances-agents;start=PT1H)
+        oncall:false"
       AlarmName: !Sub ${AWS::StackName}-too-few-eip-addresses-left
       OKActions:
         - !Ref OpsGenieTopic
@@ -138,7 +138,7 @@ Resources:
       ComparisonOperator: LessThanOrEqualToThreshold
       Period: 300
       Threshold: 3
-      TreatMissingData: breaching
+      TreatMissingData: notBreaching
 
   LambdaHasErrors:
     Type: AWS::CloudWatch::Alarm
