@@ -55,7 +55,7 @@ target/$(NAME)-$(VERSION).zip: src/*/*.py requirements.txt Dockerfile.lambda
 		chmod ugo+r target/$(NAME)-$(VERSION).zip
 
 venv: requirements.txt
-	virtualenv -p python3 venv  && \
+	virtualenv -p python3.9 venv  && \
 	. ./venv/bin/activate && \
 	pip install --quiet --upgrade pip && \
 	pip install --quiet -r requirements.txt

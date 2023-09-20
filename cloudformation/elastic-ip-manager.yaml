@@ -7,7 +7,7 @@ Parameters:
     Default: ''
   CFNCustomProviderZipFileName:
     Type: String
-    Default: lambdas/elastic-ip-manager-0.1.6.zip
+    Default: lambdas/elastic-ip-manager-0.2.0.zip
 
 Conditions:
   UsePublicBucket: !Equals
@@ -58,7 +58,7 @@ Resources:
         S3Key: !Ref 'CFNCustomProviderZipFileName'
       Handler: elastic_ip_manager.handler
       Role: !GetAtt LambdaRole.Arn
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 600
 
   Permission:
